@@ -84,7 +84,7 @@ module "key_vault" {
   private_endpoint_subnet_id   = module.networking.subnet_ids.private_endpoint
   vnet_id                      = module.networking.vnet_id
   administrator_object_id      = data.azurerm_client_config.current.object_id
-  administrator_principal_type = "User"
+  administrator_principal_type = "ServicePrincipal"
   tags                         = local.tags
 }
 
