@@ -23,7 +23,6 @@ on:
 permissions:
   contents: read
   id-token: write
-  pull-requests: write
 
 env:
   TF_VERSION: "1.15.2"
@@ -47,105 +46,9 @@ defaults:
     working-directory: terraform-infrastructure
 
 jobs:
-  plan:
-    name: "Terraform Plan"
+  terraform:
+    name: "Terraform"
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Azure login
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          allow-no-subscriptions: true
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-          terraform_wrapper: false
-
-      - name: Write backend config
-        run: |
-          cat > backend.ci.hcl <<EOF
-          resource_group_name  = "${{ secrets.TF_BACKEND_RESOURCE_GROUP_NAME }}"
-          storage_account_name = "${{ secrets.TF_BACKEND_STORAGE_ACCOUNT_NAME }}"
-          container_name       = "${{ secrets.TF_BACKEND_CONTAINER_NAME }}"
-          key                  = "${{ secrets.TF_BACKEND_STATE_KEY }}"
-          use_azuread_auth     = true
-          EOF
-
-      - name: Write CI tfvars
-        run: |
-          cat > ci.auto.tfvars <<EOF
-          location                             = "australiaeast"
-          environment                          = "prod"
-          name_prefix                          = "coderaptor"
-          postgresql_administrator_login       = "postgress"
-          postgresql_high_availability_enabled = false
-          postgresql_sku_name                  = "GP_Standard_D2s_v3"
-          system_node_vm_size                  = "Standard_D2s_v3"
-          workload_node_vm_size                = "Standard_D2s_v3"
-          workload_node_min_count              = 1
-          workload_node_max_count              = 3
-          availability_zones                   = []
-          acr_public_network_access_enabled    = true
-          vm_admin_username                    = "azure"
-          vm_size                              = "Standard_D2s_v3"
-          create_jumpbox_vm                    = true
-          EOF
-
-      - name: Terraform format check
-        run: terraform fmt -check -recursive
-
-      - name: Terraform init
-        run: terraform init -backend-config=backend.ci.hcl -input=false
-
-      - name: Terraform validate
-        run: terraform validate -no-color
-
-      - name: Terraform plan
-        run: terraform plan -out=tfplan -input=false -no-color | tee plan_output.txt
-
-      - name: Upload plan artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: terraform-plan
-          path: |
-            terraform-infrastructure/tfplan
-            terraform-infrastructure/plan_output.txt
-
-      - name: Comment plan on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const fs = require('fs');
-            const plan = fs.readFileSync('terraform-infrastructure/plan_output.txt', 'utf8');
-            const maxLen = 60000;
-            const body = [
-              '## Terraform Plan',
-              '```hcl',
-              plan.length > maxLen ? plan.slice(0, maxLen) + '\n\n... [truncated]' : plan,
-              '```'
-            ].join('\n');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body
-            });
-
-  apply:
-    name: "Terraform Apply"
-    needs: plan
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
-    environment: production
 
     steps:
       - name: Checkout
@@ -198,11 +101,12 @@ jobs:
       - name: Terraform init
         run: terraform init -backend-config=backend.ci.hcl -input=false
 
-      - name: Download plan artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: terraform-plan
-          path: terraform-infrastructure
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        run: terraform plan -out=tfplan -input=false -no-color
 
       - name: Terraform apply
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
         run: terraform apply -input=false -auto-approve tfplan
