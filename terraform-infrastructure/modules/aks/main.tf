@@ -73,6 +73,8 @@ resource "azurerm_kubernetes_cluster" "this" {
     msi_auth_for_monitoring_enabled = true
   }
 
+  monitor_metrics {}
+
   key_vault_secrets_provider {
     secret_rotation_enabled  = true
     secret_rotation_interval = "2m"

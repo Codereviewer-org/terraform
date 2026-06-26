@@ -5,7 +5,7 @@ resource "azurerm_key_vault" "this" {
   tenant_id                     = var.tenant_id
   sku_name                      = "standard"
   rbac_authorization_enabled    = true
-  public_network_access_enabled = false
+  public_network_access_enabled = true
   purge_protection_enabled      = true
   soft_delete_retention_days    = 90
   enabled_for_disk_encryption   = true

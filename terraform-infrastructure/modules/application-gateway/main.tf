@@ -22,7 +22,7 @@ resource "azurerm_application_gateway" "this" {
   name                = var.name
   resource_group_name = var.resource_group_name
   location            = var.location
-  enable_http2        = true
+  http2_enabled       = true
   zones               = var.zones
   firewall_policy_id  = azurerm_web_application_firewall_policy.this.id
   tags                = var.tags
@@ -91,6 +91,8 @@ resource "azurerm_application_gateway" "this" {
       request_routing_rule,
       rewrite_rule_set,
       ssl_certificate,
+      tags["ingress-for-aks-cluster-id"],
+      tags["managed-by-k8s-ingress"],
       trusted_root_certificate,
       url_path_map
     ]
@@ -105,7 +107,7 @@ resource "azurerm_web_application_firewall_policy" "this" {
 
   policy_settings {
     enabled                     = true
-    mode                        = "Prevention"
+    mode                        = "Detection"
     request_body_check          = true
     file_upload_limit_in_mb     = 100
     max_request_body_size_in_kb = 128
